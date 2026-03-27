@@ -2,10 +2,14 @@ import express, { Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { ShopifyAPI } from './api.js';
 import { parseProductsFile } from './parser.js';
 import { convertCSVToJSON } from './csv-converter.js';
 import 'dotenv/config';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface UploadSession {
   id: string;
@@ -37,13 +41,13 @@ function fileFilter(_req: any, file: any, cb: any) {
 
 // Middleware
 app.use(express.json());
-app.use(express.static(path.join(path.dirname(__filename), '../public')));
+app.use(express.static(path.join(__dirname, '../public')));
 
 // ============ ROUTES ============
 
 // Home page
 app.get('/', (_req: Request, res: Response) => {
-  res.sendFile(path.join(path.dirname(__filename), '../public/index.html'));
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 // API: Get current session status
