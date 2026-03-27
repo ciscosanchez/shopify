@@ -4,7 +4,6 @@ import path from 'path';
 import fs from 'fs';
 import { ShopifyAPI } from './api.js';
 import { parseProductsFile } from './parser.js';
-import { ProductUploader } from './uploader.js';
 import { convertCSVToJSON } from './csv-converter.js';
 import 'dotenv/config';
 
@@ -144,7 +143,6 @@ app.post('/api/upload/shopify', async (req: Request, res: Response) => {
     (async () => {
       try {
         const api = new ShopifyAPI(storeUrl, accessToken, false);
-        const uploader = new ProductUploader(api, 500, false);
 
         // Custom progress tracking
         for (let i = 0; i < products.length; i++) {
@@ -159,7 +157,7 @@ app.post('/api/upload/shopify', async (req: Request, res: Response) => {
               session.progress.successful++;
             }
           } catch (error) {
-            session.progress.errors?.push({
+            session.errors.push({
               index: i,
               title: product.title,
               error: error instanceof Error ? error.message : 'Unknown error',
