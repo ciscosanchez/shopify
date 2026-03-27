@@ -1,7 +1,8 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { ShopifyAPI } from './api.js';
 import { parseProductsFile } from './parser.js';
@@ -61,8 +62,70 @@ function getCredentials() {
   };
 }
 
+// ============ AUTH ============
+
+const SESSION_SECRET = process.env.SESSION_SECRET || 'changeme-set-SESSION_SECRET-in-env';
+const COOKIE_NAME = 'shopify_session';
+
+function signToken(payload: string): string {
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  return `${payload}.${sig}`;
+}
+
+function verifyToken(token: string): string | null {
+  const lastDot = token.lastIndexOf('.');
+  if (lastDot === -1) return null;
+  const payload = token.slice(0, lastDot);
+  const sig = token.slice(lastDot + 1);
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  return payload;
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const token = req.headers.cookie
+    ?.split(';')
+    .find(c => c.trim().startsWith(`${COOKIE_NAME}=`))
+    ?.split('=')[1];
+
+  if (token && verifyToken(token)) return next();
+
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  res.redirect('/login');
+}
+
 // Middleware
 app.use(express.json());
+
+// Public routes (no auth required)
+app.use('/login', express.static(path.join(__dirname, '../public/login.html')));
+app.get('/login', (_req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, '../public/login.html'));
+});
+
+app.post('/auth/login', (req: Request, res: Response) => {
+  const { username, password } = req.body;
+  const validUser = process.env.ADMIN_USERNAME || 'admin';
+  const validPass = process.env.ADMIN_PASSWORD || 'changeme';
+
+  if (username === validUser && password === validPass) {
+    const token = signToken(`user=${username}&ts=${Date.now()}`);
+    res.setHeader('Set-Cookie', `${COOKIE_NAME}=${token}; HttpOnly; Path=/; SameSite=Strict`);
+    return res.json({ ok: true });
+  }
+  res.status(401).json({ error: 'Invalid credentials' });
+});
+
+app.get('/auth/logout', (_req: Request, res: Response) => {
+  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0`);
+  res.redirect('/login');
+});
+
+// All routes below require auth
+app.use(requireAuth);
+
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ============ ROUTES ============
