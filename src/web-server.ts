@@ -39,6 +39,28 @@ function fileFilter(_req: any, file: any, cb: any) {
   }
 }
 
+// Token storage (persisted to uploads/auth.json which is a Docker volume)
+const TOKEN_FILE = path.join(process.cwd(), 'uploads', 'auth.json');
+
+function loadStoredToken(): { accessToken: string; shop: string } | null {
+  try {
+    if (fs.existsSync(TOKEN_FILE)) {
+      return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function getCredentials() {
+  const stored = loadStoredToken();
+  return {
+    accessToken: stored?.accessToken || process.env.SHOPIFY_ACCESS_TOKEN || null,
+    shop: stored?.shop || process.env.SHOPIFY_STORE_URL || null,
+  };
+}
+
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
@@ -50,11 +72,62 @@ app.get('/', (_req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
+// OAuth: Initiate Shopify auth
+app.get('/auth', (_req: Request, res: Response) => {
+  const clientId = process.env.SHOPIFY_CLIENT_ID;
+  const shop = process.env.SHOPIFY_STORE_URL;
+  const appUrl = process.env.APP_URL || 'https://shopify.ramola.app';
+
+  if (!clientId || !shop) {
+    return res.status(500).send('Missing SHOPIFY_CLIENT_ID or SHOPIFY_STORE_URL in environment');
+  }
+
+  const redirectUri = `${appUrl}/auth/callback`;
+  const scopes = 'write_products,read_products';
+  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${clientId}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  res.redirect(installUrl);
+});
+
+// OAuth: Callback from Shopify
+app.get('/auth/callback', async (req: Request, res: Response) => {
+  const { shop, code } = req.query as { shop: string; code: string };
+  const clientId = process.env.SHOPIFY_CLIENT_ID;
+  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
+
+  if (!shop || !code || !clientId || !clientSecret) {
+    return res.status(400).send('Missing required OAuth parameters');
+  }
+
+  try {
+    const response = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code }),
+    });
+
+    const data = await response.json() as { access_token: string };
+
+    if (!data.access_token) {
+      return res.status(400).send('Failed to get access token');
+    }
+
+    // Persist token to file
+    fs.writeFileSync(TOKEN_FILE, JSON.stringify({ accessToken: data.access_token, shop }));
+    console.log(`✅ OAuth complete for ${shop}`);
+
+    res.redirect('/');
+  } catch (error) {
+    console.error('OAuth error:', error);
+    res.status(500).send('OAuth failed');
+  }
+});
+
 // API: Get server-side config (whether credentials are pre-configured)
 app.get('/api/config', (_req: Request, res: Response) => {
+  const { accessToken, shop } = getCredentials();
   res.json({
-    hasCredentials: !!(process.env.SHOPIFY_STORE_URL && process.env.SHOPIFY_ACCESS_TOKEN),
-    storeUrl: process.env.SHOPIFY_STORE_URL || null,
+    hasCredentials: !!(shop && accessToken),
+    storeUrl: shop,
   });
 });
 
@@ -121,8 +194,9 @@ app.post('/api/upload', upload.single('file'), async (req: Request, res: Respons
 app.post('/api/upload/shopify', async (req: Request, res: Response) => {
   try {
     const { productsFile } = req.body;
-    const storeUrl = req.body.storeUrl || process.env.SHOPIFY_STORE_URL;
-    const accessToken = req.body.accessToken || process.env.SHOPIFY_ACCESS_TOKEN;
+    const creds = getCredentials();
+    const storeUrl = req.body.storeUrl || creds.shop;
+    const accessToken = req.body.accessToken || creds.accessToken;
 
     if (!productsFile || !storeUrl || !accessToken) {
       return res.status(400).json({ error: 'Missing required fields' });
