@@ -50,6 +50,14 @@ app.get('/', (_req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
+// API: Get server-side config (whether credentials are pre-configured)
+app.get('/api/config', (_req: Request, res: Response) => {
+  res.json({
+    hasCredentials: !!(process.env.SHOPIFY_STORE_URL && process.env.SHOPIFY_ACCESS_TOKEN),
+    storeUrl: process.env.SHOPIFY_STORE_URL || null,
+  });
+});
+
 // API: Get current session status
 app.get('/api/session', (req: Request, res: Response) => {
   const sessionId = req.query.sessionId as string;
@@ -112,7 +120,9 @@ app.post('/api/upload', upload.single('file'), async (req: Request, res: Respons
 // API: Start upload to Shopify
 app.post('/api/upload/shopify', async (req: Request, res: Response) => {
   try {
-    const { productsFile, storeUrl, accessToken } = req.body;
+    const { productsFile } = req.body;
+    const storeUrl = req.body.storeUrl || process.env.SHOPIFY_STORE_URL;
+    const accessToken = req.body.accessToken || process.env.SHOPIFY_ACCESS_TOKEN;
 
     if (!productsFile || !storeUrl || !accessToken) {
       return res.status(400).json({ error: 'Missing required fields' });

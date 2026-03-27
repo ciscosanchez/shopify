@@ -1,16 +1,16 @@
 // ============ STATE ============
 let uploadedFile = null;
 let currentSessionId = null;
+let useEnvCredentials = false;
 
 // ============ EVENT LISTENERS ============
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput');
 
   // File selection
   uploadArea.addEventListener('click', chooseFile);
-
   fileInput.addEventListener('change', handleFileSelect);
 
   // Drag and drop
@@ -33,11 +33,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Load credentials from localStorage
-  const savedStoreUrl = localStorage.getItem('storeUrl');
-  const savedAccessToken = localStorage.getItem('accessToken');
-  if (savedStoreUrl) document.getElementById('storeUrl').value = savedStoreUrl;
-  if (savedAccessToken) document.getElementById('accessToken').value = savedAccessToken;
+  // Check if server has pre-configured credentials
+  try {
+    const res = await fetch('/api/config');
+    const config = await res.json();
+    if (config.hasCredentials) {
+      useEnvCredentials = true;
+      const step = document.getElementById('credentialsStep');
+      step.innerHTML = `<h2><span class="step-number">1</span> Shopify Credentials</h2>
+        <p class="status success">✅ Connected to <strong>${config.storeUrl}</strong></p>`;
+    } else {
+      // Load credentials from localStorage
+      const savedStoreUrl = localStorage.getItem('storeUrl');
+      const savedAccessToken = localStorage.getItem('accessToken');
+      if (savedStoreUrl) document.getElementById('storeUrl').value = savedStoreUrl;
+      if (savedAccessToken) document.getElementById('accessToken').value = savedAccessToken;
+    }
+  } catch (e) {
+    // Fall through to manual credentials
+  }
 });
 
 // ============ FILE HANDLING ============
@@ -178,10 +192,10 @@ async function testCredentials() {
 // ============ UPLOAD ============
 
 async function startUpload() {
-  const storeUrl = document.getElementById('storeUrl').value;
-  const accessToken = document.getElementById('accessToken').value;
+  const storeUrl = useEnvCredentials ? '' : document.getElementById('storeUrl').value;
+  const accessToken = useEnvCredentials ? '' : document.getElementById('accessToken').value;
 
-  if (!storeUrl || !accessToken) {
+  if (!useEnvCredentials && (!storeUrl || !accessToken)) {
     showStatus('Please enter both store URL and access token', 'error', 'uploadStatus');
     return;
   }
