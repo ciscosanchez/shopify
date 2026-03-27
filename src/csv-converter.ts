@@ -76,80 +76,167 @@ function parseCSVLine(line: string): string[] {
 }
 
 /**
- * Convert CSV rows to Shopify product JSON format
- * Maps common CSV column names to product fields
+ * Convert CSV rows to Shopify product JSON format.
+ * Supports both Shopify's native export format (multi-row variants)
+ * and simple single-row-per-product formats.
  */
 export function convertToProducts(rows: CsvRow[]): any[] {
-  const products: any[] = [];
+  // Detect if this is Shopify's native format (has "url handle" column)
+  const isShopifyFormat = rows.length > 0 && ('url handle' in rows[0] || 'title' in rows[0]);
 
-  rows.forEach((row) => {
-    // Only process rows with a title
-    if (!row.title && !row.name && !row.product && !row['product name']) {
-      return;
+  if (isShopifyFormat && rows.some(r => 'url handle' in r)) {
+    return convertShopifyNativeFormat(rows);
+  }
+  return convertSimpleFormat(rows);
+}
+
+/**
+ * Convert Shopify's native CSV export format.
+ * Groups variant rows (empty Title, same URL handle) under their parent product.
+ */
+function convertShopifyNativeFormat(rows: CsvRow[]): any[] {
+  const productMap = new Map<string, any>();
+  const productOrder: string[] = [];
+
+  for (const row of rows) {
+    const title = row['title']?.trim();
+    const handle = (row['url handle'] || row['handle'])?.trim();
+
+    if (!handle) continue;
+
+    // New product row (has a title)
+    if (title) {
+      const product: any = { title };
+
+      if (handle) product.handle = handle;
+
+      const desc = row['description'] || row['body html'] || '';
+      if (desc.trim()) product.bodyHtml = desc.trim().startsWith('<') ? desc.trim() : `<p>${desc.trim()}</p>`;
+
+      if (row['vendor']?.trim()) product.vendor = row['vendor'].trim();
+      if (row['type']?.trim()) product.productType = row['type'].trim();
+      if (row['product category']?.trim()) product.productCategory = row['product category'].trim();
+      if (row['tags']?.trim()) product.tags = row['tags'].trim();
+
+      const status = row['status']?.trim().toLowerCase();
+      if (status) product.status = status === 'active' ? 'ACTIVE' : status === 'draft' ? 'DRAFT' : 'ACTIVE';
+
+      if (row['seo title']?.trim()) product.seoTitle = row['seo title'].trim();
+      if (row['seo description']?.trim()) product.seoDescription = row['seo description'].trim();
+
+      // Options
+      const options: any[] = [];
+      for (let i = 1; i <= 3; i++) {
+        const optName = row[`option${i} name`]?.trim();
+        if (optName) options.push({ name: optName });
+      }
+      if (options.length) product.options = options;
+
+      product.variants = [];
+      product.images = [];
+
+      productMap.set(handle, product);
+      productOrder.push(handle);
     }
 
-    const title = row.title || row.name || row.product || row['product name'];
-    if (!title.trim()) return;
+    const product = productMap.get(handle);
+    if (!product) continue;
 
-    const product: any = {
-      title: title.trim(),
-    };
+    // Build variant from this row
+    const variant: any = {};
+    if (row['sku']?.trim()) variant.sku = row['sku'].trim();
+    if (row['barcode']?.trim()) variant.barcode = row['barcode'].trim();
+    if (row['price']?.trim()) variant.price = row['price'].trim();
+    if (row['compare-at price']?.trim()) variant.compareAtPrice = row['compare-at price'].trim();
 
-    // Map optional fields
+    const weightGrams = row['weight value (grams)']?.trim();
+    if (weightGrams) {
+      variant.weight = parseFloat(weightGrams);
+      variant.weightUnit = 'GRAMS';
+    }
+
+    const displayUnit = row['weight unit for display']?.trim();
+    if (displayUnit) variant.weightUnit = displayUnit.toUpperCase();
+
+    const qty = row['inventory quantity']?.trim();
+    if (qty) variant.inventoryQuantity = parseInt(qty, 10);
+
+    const inventoryTracker = row['inventory tracker']?.trim();
+    if (inventoryTracker) variant.inventoryManagement = inventoryTracker.toUpperCase();
+
+    const continueOos = row['continue selling when out of stock']?.trim().toUpperCase();
+    if (continueOos) variant.inventoryPolicy = continueOos === 'TRUE' || continueOos === 'CONTINUE' ? 'CONTINUE' : 'DENY';
+
+    const requiresShipping = row['requires shipping']?.trim().toUpperCase();
+    if (requiresShipping) variant.requiresShipping = requiresShipping === 'TRUE';
+
+    // Variant option values
+    for (let i = 1; i <= 3; i++) {
+      const optVal = row[`option${i} value`]?.trim();
+      if (optVal) variant[`option${i}`] = optVal;
+    }
+
+    // Variant image
+    const variantImg = row['variant image url']?.trim();
+    if (variantImg) variant.imageSrc = variantImg;
+
+    product.variants.push(variant);
+
+    // Product image (only add if new src)
+    const imgSrc = row['product image url']?.trim();
+    const imgAlt = row['image alt text']?.trim() || '';
+    const imgPos = parseInt(row['image position']?.trim() || '0', 10);
+    if (imgSrc && !product.images.some((img: any) => img.src === imgSrc)) {
+      product.images.push({ src: imgSrc, altText: imgAlt, position: imgPos || product.images.length + 1 });
+    }
+  }
+
+  return productOrder.map(h => productMap.get(h)).filter(Boolean);
+}
+
+/**
+ * Convert simple single-row-per-product CSV format.
+ */
+function convertSimpleFormat(rows: CsvRow[]): any[] {
+  const products: any[] = [];
+
+  for (const row of rows) {
+    const title = (row.title || row.name || row.product || row['product name'])?.trim();
+    if (!title) continue;
+
+    const product: any = { title };
+
     if (row.handle) product.handle = row.handle.trim();
-    if (row.description || row.desc || row['body html'])
-      product.bodyHtml = `<p>${(row.description || row.desc || row['body html']).trim()}</p>`;
+
+    const desc = row.description || row.desc || row['body html'] || '';
+    if (desc.trim()) product.bodyHtml = `<p>${desc.trim()}</p>`;
+
     if (row.vendor || row.brand) product.vendor = (row.vendor || row.brand).trim();
     if (row['product type'] || row.type) product.productType = (row['product type'] || row.type).trim();
     if (row.tags) product.tags = row.tags.trim();
-    if (row.status) product.status = row.status.trim();
+    if (row.status) product.status = row.status.trim().toUpperCase();
 
-    // Handle variants (sku, price, compare_at_price, inventory_quantity)
-    if (row.sku || row.price || row['compare at price'] || row.inventory) {
-      const variant: any = {};
+    const variant: any = {};
+    if (row.sku) variant.sku = row.sku.trim();
+    if (row.price) variant.price = row.price.trim();
+    if (row['compare at price'] || row['compare_at_price'])
+      variant.compareAtPrice = (row['compare at price'] || row['compare_at_price']).trim();
+    if (row.barcode) variant.barcode = row.barcode.trim();
+    if (row.weight) variant.weight = parseFloat(row.weight);
+    if (row['weight unit'] || row['weight_unit'])
+      variant.weightUnit = (row['weight unit'] || row['weight_unit']).trim().toUpperCase();
+    const qty = row.inventory || row['inventory quantity'] || row['inventory_quantity'];
+    if (qty) variant.inventoryQuantity = parseInt(qty, 10);
 
-      if (row['variant title'] || row.size || row.color) {
-        variant.title = (row['variant title'] || row.size || row.color || '').trim();
-      }
+    if (Object.keys(variant).length) product.variants = [variant];
 
-      if (row.sku) variant.sku = row.sku.trim();
-      if (row.price) variant.price = row.price.trim();
-      if (row['compare at price'] || row['compare_at_price']) {
-        variant.compareAtPrice = (row['compare at price'] || row['compare_at_price']).trim();
-      }
-      if (row.barcode) variant.barcode = row.barcode.trim();
-      if (row.weight) variant.weight = parseFloat(row.weight);
-      if (row['weight unit'] || row['weight_unit']) {
-        variant.weightUnit = (row['weight unit'] || row['weight_unit']).trim();
-      }
-      if (row.inventory || row['inventory quantity'] || row['inventory_quantity']) {
-        const qty = row.inventory || row['inventory quantity'] || row['inventory_quantity'];
-        variant.inventoryQuantity = parseInt(qty, 10);
-      }
-      if (row['inventory management'] || row['inventory_management']) {
-        variant.inventoryManagement = (
-          row['inventory management'] || row['inventory_management']
-        ).trim();
-      }
-
-      product.variants = [variant];
-    }
-
-    // Handle images (image url, image alt)
-    if (row['image url'] || row['image'] || row['image_url']) {
-      const imageUrl = row['image url'] || row['image'] || row['image_url'];
-      if (imageUrl.trim()) {
-        product.images = [
-          {
-            src: imageUrl.trim(),
-            alt: (row['image alt'] || row['image_alt'] || '').trim() || undefined,
-          },
-        ];
-      }
+    const imgSrc = row['image url'] || row['image'] || row['image_url'] || row['product image url'];
+    if (imgSrc?.trim()) {
+      product.images = [{ src: imgSrc.trim(), altText: (row['image alt'] || row['image alt text'] || '').trim() }];
     }
 
     products.push(product);
-  });
+  }
 
   return products;
 }
@@ -208,8 +295,8 @@ export async function convertCSVToJSON(
  * Generate a sample CSV for users
  */
 export function generateSampleCSV(): string {
-  return `title,handle,description,vendor,product type,tags,sku,price,compare at price,inventory quantity,image url,image alt
-Wireless Headphones,wireless-headphones,Premium wireless headphones with noise cancellation,AudioPro,Electronics,headphones wireless audio,WBH-001,199.99,249.99,50,https://example.com/headphones.jpg,Wireless Headphones
-Water Bottle,water-bottle,Insulated water bottle keeps drinks cold for 24 hours,HydroFlex,Sports,water bottle insulated,WB-001,34.99,44.99,100,https://example.com/water-bottle.jpg,Water Bottle
-T-Shirt,t-shirt,Comfortable organic cotton t-shirt,EcoWear,Apparel,shirt cotton,TS-001,29.99,39.99,75,https://example.com/tshirt.jpg,T-Shirt`;
+  return `Title,URL handle,Description,Vendor,Type,Tags,Status,SKU,Barcode,Option1 name,Option1 value,Option2 name,Option2 value,Price,Compare-at price,Inventory quantity,Weight value (grams),Requires shipping,Product image URL,Image alt text
+Wireless Headphones,wireless-headphones,Premium wireless headphones with noise cancellation,AudioPro,Electronics,"headphones,wireless,audio",Active,WBH-BLK,,Color,Black,,, 199.99,249.99,50,300,TRUE,https://example.com/headphones.jpg,Wireless Headphones Black
+,wireless-headphones,,,,,,WBH-WHT,,,White,,,199.99,249.99,35,300,TRUE,https://example.com/headphones-white.jpg,Wireless Headphones White
+Water Bottle,water-bottle,Insulated water bottle keeps drinks cold for 24 hours,HydroFlex,Sports,"water bottle,insulated",Active,WB-001,,Title,Default,,,34.99,44.99,100,500,TRUE,https://example.com/water-bottle.jpg,Water Bottle`;
 }
