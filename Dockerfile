@@ -13,7 +13,7 @@ COPY src ./src
 COPY public ./public
 COPY tsconfig.json .
 COPY .prettierrc .
-COPY eslint.config.js .
+COPY .eslintrc.json .
 
 # Build TypeScript
 RUN npm run build
