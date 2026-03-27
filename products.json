@@ -1,0 +1,101 @@
+[
+  {
+    "title": "Wireless Bluetooth Headphones",
+    "handle": "wireless-bluetooth-headphones",
+    "bodyHtml": "<p>Premium wireless headphones with noise cancellation and 30-hour battery life.</p>",
+    "vendor": "AudioPro",
+    "productType": "Electronics",
+    "tags": "headphones, wireless, audio",
+    "status": "active",
+    "variants": [
+      {
+        "title": "Black",
+        "sku": "WBH-BLK-001",
+        "price": "199.99",
+        "compareAtPrice": "249.99",
+        "weight": 0.25,
+        "weightUnit": "kg",
+        "inventoryQuantity": 50
+      },
+      {
+        "title": "Silver",
+        "sku": "WBH-SLV-001",
+        "price": "199.99",
+        "compareAtPrice": "249.99",
+        "weight": 0.25,
+        "weightUnit": "kg",
+        "inventoryQuantity": 40
+      }
+    ],
+    "images": [
+      {
+        "src": "https://example.com/images/headphones-1.jpg",
+        "alt": "Wireless Bluetooth Headphones Front View"
+      },
+      {
+        "src": "https://example.com/images/headphones-2.jpg",
+        "alt": "Wireless Bluetooth Headphones Side View"
+      }
+    ]
+  },
+  {
+    "title": "Stainless Steel Water Bottle",
+    "handle": "stainless-steel-water-bottle",
+    "bodyHtml": "<p>Durable, insulated water bottle keeps drinks cold for 24 hours or hot for 12 hours.</p>",
+    "vendor": "HydroFlex",
+    "productType": "Sports & Outdoors",
+    "tags": "water bottle, insulated, eco-friendly",
+    "status": "active",
+    "variants": [
+      {
+        "title": "32 oz",
+        "sku": "SSWB-32-001",
+        "price": "34.99",
+        "compareAtPrice": "44.99",
+        "weight": 0.5,
+        "weightUnit": "kg",
+        "inventoryQuantity": 100
+      }
+    ],
+    "images": [
+      {
+        "src": "https://example.com/images/water-bottle.jpg",
+        "alt": "Stainless Steel Water Bottle"
+      }
+    ]
+  },
+  {
+    "title": "Organic Cotton T-Shirt",
+    "bodyHtml": "<p>Comfortable, sustainable organic cotton t-shirt available in multiple colors.</p>",
+    "vendor": "EcoWear",
+    "productType": "Apparel",
+    "tags": "t-shirt, organic, cotton",
+    "status": "active",
+    "variants": [
+      {
+        "title": "Small - White",
+        "sku": "OCT-S-WHT",
+        "price": "29.99",
+        "inventoryQuantity": 25
+      },
+      {
+        "title": "Medium - White",
+        "sku": "OCT-M-WHT",
+        "price": "29.99",
+        "inventoryQuantity": 30
+      },
+      {
+        "title": "Large - White",
+        "sku": "OCT-L-WHT",
+        "price": "29.99",
+        "inventoryQuantity": 20
+      },
+      {
+        "title": "Small - Black",
+        "sku": "OCT-S-BLK",
+        "price": "29.99",
+        "inventoryQuantity": 15
+      }
+    ]
+  }
+]

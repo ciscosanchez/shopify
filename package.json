@@ -1,0 +1,43 @@
+{
+  "name": "shopify-product-importer",
+  "version": "1.0.0",
+  "description": "Bulk upload products to Shopify via REST API",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "upload": "tsx src/index.ts",
+    "convert": "tsx src/index.ts convert",
+    "sample": "tsx src/index.ts sample",
+    "web": "tsx src/index.ts web",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
+  },
+  "keywords": [
+    "shopify",
+    "bulk",
+    "import",
+    "products"
+  ],
+  "author": "Cisco Sanchez",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20",
+    "eslint": "^9",
+    "prettier": "^3.4.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5"
+  }
+}

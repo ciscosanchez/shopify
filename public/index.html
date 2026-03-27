@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shopify Product Importer</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <h1>📦 Shopify Product Importer</h1>
+        <p>Bulk upload products to your Shopify store</p>
+      </header>
+
+      <!-- Main Content -->
+      <main class="main">
+        <!-- Step 1: Credentials -->
+        <section class="step">
+          <h2>
+            <span class="step-number">1</span> Shopify Credentials
+          </h2>
+          <form id="credentialsForm" class="form">
+            <div class="form-group">
+              <label for="storeUrl">Store URL</label>
+              <input
+                type="text"
+                id="storeUrl"
+                placeholder="my-store.myshopify.com"
+                required
+              />
+              <small>Find this in Shopify Admin → Settings → General</small>
+            </div>
+            <div class="form-group">
+              <label for="accessToken">Access Token</label>
+              <input
+                type="password"
+                id="accessToken"
+                placeholder="shpat_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                required
+              />
+              <small
+                ><a href="#" onclick="toggleTokenVisibility(); return false;">Show password</a></small
+              >
+            </div>
+            <button type="button" onclick="testCredentials()" class="btn btn-secondary">
+              🧪 Test Connection
+            </button>
+            <div id="credentialsStatus" class="status"></div>
+          </form>
+        </section>
+
+        <!-- Step 2: Upload File -->
+        <section class="step">
+          <h2>
+            <span class="step-number">2</span> Upload Products
+          </h2>
+          <div class="upload-area" id="uploadArea">
+            <input type="file" id="fileInput" accept=".json,.csv" style="display: none" />
+            <div class="upload-icon">📁</div>
+            <h3>Drop your file here</h3>
+            <p>or click to browse</p>
+            <p class="upload-formats">Accepts JSON or CSV files</p>
+          </div>
+
+          <div id="uploadProgress" class="upload-progress" style="display: none">
+            <div class="progress-info">
+              <div class="progress-title">
+                <span id="progressFileName"></span>
+              </div>
+              <div class="progress-details">
+                <span id="progressStatus"></span>
+              </div>
+            </div>
+            <div class="progress-bar">
+              <div id="progressFill" class="progress-fill"></div>
+            </div>
+          </div>
+
+          <div id="fileInfo" class="file-info" style="display: none">
+            <div class="info-row">
+              <span class="label">File:</span>
+              <span id="fileName"></span>
+            </div>
+            <div class="info-row">
+              <span class="label">Products found:</span>
+              <span id="productCount"></span>
+            </div>
+            <div class="info-row" id="errorCountRow" style="display: none">
+              <span class="label warning">Validation errors:</span>
+              <span id="errorCount" class="warning"></span>
+            </div>
+          </div>
+
+          <button type="button" onclick="chooseFile()" class="btn btn-primary" id="chooseFileBtn">
+            📁 Choose File
+          </button>
+          <button type="button" onclick="startUpload()" class="btn btn-success" id="uploadBtn" style="display: none">
+            🚀 Upload to Shopify
+          </button>
+
+          <div id="uploadStatus" class="status"></div>
+        </section>
+
+        <!-- Step 3: Results -->
+        <section class="step" id="resultsSection" style="display: none">
+          <h2>
+            <span class="step-number">3</span> Upload Results
+          </h2>
+          <div class="results-summary">
+            <div class="result-item success">
+              <span class="result-icon">✅</span>
+              <div>
+                <div class="result-label">Created</div>
+                <div class="result-value" id="successCount">0</div>
+              </div>
+            </div>
+            <div class="result-item info">
+              <span class="result-icon">ℹ️</span>
+              <div>
+                <div class="result-label">Skipped</div>
+                <div class="result-value" id="skippedCount">0</div>
+              </div>
+            </div>
+            <div class="result-item error" id="failedResultItem" style="display: none">
+              <span class="result-icon">❌</span>
+              <div>
+                <div class="result-label">Failed</div>
+                <div class="result-value" id="failedCount">0</div>
+              </div>
+            </div>
+            <div class="result-item">
+              <span class="result-icon">⏱️</span>
+              <div>
+                <div class="result-label">Time</div>
+                <div class="result-value" id="duration">0s</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="errorsList" style="display: none" class="errors-list">
+            <h3>⚠️ Failed Products</h3>
+            <div id="errorsContent"></div>
+          </div>
+
+          <button type="button" onclick="reset()" class="btn btn-secondary">
+            ↻ Import More
+          </button>
+        </section>
+
+        <!-- Help Section -->
+        <section class="step help-section">
+          <h2>💡 Help & Information</h2>
+          <div class="help-content">
+            <h3>Getting Shopify API Credentials</h3>
+            <ol>
+              <li>Go to <strong>Shopify Admin</strong></li>
+              <li>Navigate to <strong>Settings → Apps and integrations</strong></li>
+              <li>Click <strong>Develop apps</strong></li>
+              <li>Create a new app named "Product Importer"</li>
+              <li>Go to <strong>Configuration → Admin API</strong></li>
+              <li>Enable: <code>write_products</code> and <code>read_products</code></li>
+              <li>Copy your <strong>Access Token</strong></li>
+            </ol>
+
+            <h3>CSV Format</h3>
+            <p>Your CSV should have a header row with these columns:</p>
+            <table class="csv-table">
+              <thead>
+                <tr>
+                  <th>Column</th>
+                  <th>Required?</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>title</code></td>
+                  <td>✓</td>
+                  <td>Product name</td>
+                </tr>
+                <tr>
+                  <td><code>description</code></td>
+                  <td></td>
+                  <td>Product description</td>
+                </tr>
+                <tr>
+                  <td><code>vendor</code></td>
+                  <td></td>
+                  <td>Brand/manufacturer</td>
+                </tr>
+                <tr>
+                  <td><code>sku</code></td>
+                  <td></td>
+                  <td>Stock keeping unit</td>
+                </tr>
+                <tr>
+                  <td><code>price</code></td>
+                  <td></td>
+                  <td>Selling price</td>
+                </tr>
+                <tr>
+                  <td><code>compare at price</code></td>
+                  <td></td>
+                  <td>Original price (shows discount)</td>
+                </tr>
+                <tr>
+                  <td><code>inventory quantity</code></td>
+                  <td></td>
+                  <td>Starting stock</td>
+                </tr>
+                <tr>
+                  <td><code>image url</code></td>
+                  <td></td>
+                  <td>Product image URL</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>JSON Format</h3>
+            <p>JSON should be an array of product objects:</p>
+            <pre><code>[
+  {
+    "title": "Product Name",
+    "price": "99.99",
+    "sku": "SKU-001"
+  }
+]</code></pre>
+          </div>
+        </section>
+      </main>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <p>🔒 Your credentials are only used to connect to your Shopify store and never stored.</p>
+      </footer>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

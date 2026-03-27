@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  shopify-importer:
+    build: .
+    container_name: shopify-product-importer
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Add your Shopify credentials here or use .env file
+      # - SHOPIFY_STORE_URL=your-store.myshopify.com
+      # - SHOPIFY_ACCESS_TOKEN=shpat_xxxxx
+    volumes:
+      - ./uploads:/app/uploads
+      - ./products.json:/app/products.json:ro
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+
+# To run:
+# docker-compose up -d
+#
+# Access at: http://localhost:3000
+#
+# To use CLI mode instead of web UI:
+# docker-compose run shopify-importer npm run upload
+#
+# To convert CSV:
+# docker-compose run shopify-importer npm run convert products.csv
