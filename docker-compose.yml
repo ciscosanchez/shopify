@@ -2,7 +2,6 @@ services:
   shopify-importer:
     build: .
     container_name: shopify-importer
-    env_file: .env
     environment:
       - NODE_ENV=production
       - PORT=3000
